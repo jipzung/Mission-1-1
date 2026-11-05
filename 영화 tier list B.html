@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>영화 티어리스트 (Movie Tier List)</title>
+    <style>
+        :root {
+            --bg-color: #1a1a1a;
+            --card-color: #333;
+            --text-color: #fff;
+            --s-tier: #ff7f7f; --a-tier: #ffbf7f; --b-tier: #ffff7f;
+            --c-tier: #7fff7f; --d-tier: #7fbfff; --un-tier: #aaaaaa;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+        }
+
+        h1 { margin-bottom: 20px; }
+
+        /* 티어 컨테이너 스타일 */
+        .tier-container {
+            width: 100%;
+            max-width: 800px;
+            border: 2px solid #444;
+            margin-bottom: 20px;
+        }
+
+        .tier-row {
+            display: flex;
+            min-height: 80px;
+            border-bottom: 1px solid #444;
+        }
+
+        .tier-label {
+            width: 100px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            font-weight: bold;
+            font-size: 1.2rem;
+            color: #000;
+            text-align: center;
+        }
+
+        .tier-label span { font-size: 0.8rem; }
+
+        .tier-content {
+            flex-grow: 1;
+            display: flex;
+            flex-wrap: wrap;
+            padding: 10px;
+            gap: 10px;
+            background-color: #222;
+        }
+
+        /* 티어별 색상 */
+        .s { background-color: var(--s-tier); }
+        .a { background-color: var(--a-tier); }
+        .b { background-color: var(--b-tier); }
+        .c { background-color: var(--c-tier); }
+        .d { background-color: var(--d-tier); }
+        .unclassified { background-color: var(--un-tier); }
+
+        /* 영화 카드 스타일 */
+        .movie-card {
+            background-color: var(--card-color);
+            padding: 8px 15px;
+            border-radius: 5px;
+            cursor: grab;
+            user-select: none;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+            transition: transform 0.2s;
+        }
+
+        .movie-card:active { cursor: grabbing; }
+        .movie-card:hover { transform: scale(1.05); }
+
+        /* 입력창 스타일 */
+        .input-section {
+            margin-top: 20px;
+            display: flex;
+            gap: 10px;
+        }
+
+        input {
+            padding: 10px;
+            border-radius: 5px;
+            border: none;
+            width: 250px;
+        }
+
+        button {
+            padding: 10px 20px;
+            border-radius: 5px;
+            border: none;
+            background-color: #e50914;
+            color: white;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        button:hover { background-color: #b20710; }
+    </style>
+</head>
+<body>
+
+    <h1>🎬 My Movie Tier List</h1>
+
+    <div class="tier-container" id="tier-board">
+        <!-- 티어 행들이 여기에 생성됩니다 -->
+    </div>
+
+    <div class="input-section">
+        <input type="text" id="movie-input" placeholder="영화 제목을 입력하세요...">
+        <button id="add-btn">추가하기</button>
+    </div>
+
+    <script>
+        // 1. 초기 데이터 및 상태 관리
+        const tiers = ['S', 'A', 'B', 'C', 'D', '미분류'];
+        const tierColors = { 'S': 's', 'A': 'a', 'B': 'b', 'C': 'c', 'D': 'd', '미분류': 'unclassified' };
+        
+        // 로컬 스토리지에서 데이터 불러오기 (없으면 빈 객체)
+        let movieData = JSON.parse(localStorage.getItem('movieTierData')) || {
+            'S': [], 'A': [], 'B': [], 'C': [], 'D': [], '미분류': []
+        };
+
+        const tierBoard = document.getElementById('tier-board');
+        const movieInput = document.getElementById('movie-input');
+        const addBtn = document.getElementById('add-btn');
+
+        // 2. 화면 그리기 (Render)
+        function render() {
+            tierBoard.innerHTML = ''; // 기존 내용 삭제
+
+            tiers.forEach(tier => {
+                const row = document.createElement('div');
+                row.className = 'tier-row';
+                
+                // 티어 라벨 (왼쪽)
+                const label = document.createElement('div');
+                label.className = `tier-label ${tierColors[tier]}`;
+                label.innerHTML = `${tier} <span>(${movieData[tier].length})</span>`;
+                
+                // 영화 배치 영역 (오른쪽)
+                const content = document.createElement('div');
+                content.className = 'tier-content';
+                content.dataset.tier = tier; // 드롭 대상 구분을 위한 데이터 속성
+
+                // 드래그 앤 드롭 이벤트 리스너
+                content.ondragover = (e) => e.preventDefault();
+                content.ondrop = (e) => handleDrop(e, tier);
+
+                // 해당 티어의 영화 카드들 생성
+                movieData[tier].forEach(movieTitle => {
+                    const card = document.createElement('div');
+                    card.className = 'movie-card';
+                    card.textContent = movieTitle;
+                    card.draggable = true;
+                    
+                    // 드래그 시작 시 데이터 설정
+                    card.ondragstart = (e) => {
+                        e.dataTransfer.setData('text/plain', movieTitle);
+                        e.dataTransfer.setData('fromTier', tier);
+                    };
+
+                    content.appendChild(card);
+                });
+
+                row.appendChild(label);
+                row.appendChild(content);
+                tierBoard.appendChild(row);
+            });
+
+            // 데이터 저장
+            localStorage.setItem('movieTierData', JSON.stringify(movieData));
+        }
+
+        // 3. 영화 추가 기능
+        function addMovie() {
+            const title = movieInput.value.trim();
+            if (!title) return;
+
+            // 중복 체크 (모든 티어 검사)
+            const allMovies = Object.values(movieData).flat();
+            if (allMovies.includes(title)) {
+                alert('이미 목록에 있는 영화입니다!');
+                return;
+            }
+
+            movieData['미분류'].push(title);
+            movieInput.value = '';
+            render();
+        }
+
+        // 4. 드롭 처리 (티어 이동)
+        function handleDrop(e, toTier) {
+            e.preventDefault();
+            const movieTitle = e.dataTransfer.getData('text/plain');
+            const fromTier = e.dataTransfer.getData('fromTier');
+
+            if (fromTier === toTier) return; // 같은 티어로 이동 시 무시
+
+            // 기존 티어에서 제거
+            movieData[fromTier] = movieData[fromTier].filter(m => m !== movieTitle);
+            // 새 티어에 추가
+            movieData[toTier].push(movieTitle);
+
+            render();
+        }
+
+        // 이벤트 연결
+        addBtn.onclick = addMovie;
+        movieInput.onkeypress = (e) => { if (e.key === 'Enter') addMovie(); };
+
+        // 초기 실행
+        render();
+    </script>
+</body>
+</html>
